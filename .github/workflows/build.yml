@@ -1,4 +1,35 @@
 
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+
+android {
+    namespace 'com.amindata.app'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.amindata.app'
+        minSdk 23
+        targetSdk 35
+        versionCode 1
+        versionName '1.0.0'
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+}
+
+dependencies {
+    implementation 'androidx.biometric:biometric:1.1.0'
+}
+
 name: Build AminData APK
 
 on:
@@ -6,6 +37,9 @@ on:
   push:
     branches:
       - main
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -21,59 +55,29 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Gradle
+      - name: Set up Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
       - name: Extract AminData project
         run: |
+          mkdir -p extracted
           unzip -o AminDataWebView-Download.zip -d extracted
 
-      - name: Verify project files
+      - name: Check project files
         run: |
+          ls -la extracted/AminDataWebView
           test -f extracted/AminDataWebView/app/build.gradle
-          test -f extracted/AminDataWebView/settings.gradle
-
-      - name: Fix Java and Kotlin JVM targets
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          p = Path("extracted/AminDataWebView/app/build.gradle")
-          s = p.read_text()
-
-          fix = """
-              compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_17
-                  targetCompatibility JavaVersion.VERSION_17
-              }
-
-              kotlinOptions {
-                  jvmTarget = '17'
-              }
-          """
-
-          if "sourceCompatibility JavaVersion.VERSION_17" not in s:
-              s = s.replace("android {", "android {" + fix, 1)
-
-          p.write_text(s)
-
-          print("Updated Gradle configuration:")
-          print(s)
-          PY
 
       - name: Build AminData APK
+        working-directory: extracted/AminDataWebView
         run: |
-          cd extracted/AminDataWebView
-          gradle --no-daemon --stacktrace assembleDebug
+          gradle --no-daemon assembleDebug
 
       - name: Verify APK
         run: |
-          APK="extracted/AminDataWebView/app/build/outputs/apk/debug/app-debug.apk"
-          test -s "$APK"
-          echo "APK build successful"
-          ls -lh "$APK"
+          test -s extracted/AminDataWebView/app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload AminData APK
         uses: actions/upload-artifact@v4
@@ -81,4 +85,3 @@ jobs:
           name: AminData-APK
           path: extracted/AminDataWebView/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-          retention-days: 7
