@@ -45,3 +45,7 @@ jobs:
           name: AminData-APK
           path: extracted/AminDataWebView/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+
+      - name: Fix Java and Kotlin JVM targets
+        run: |
+          sed -i "/defaultConfig {/i\\    compileOptions {\\n        sourceCompatibility JavaVersion.VERSION_17\\n        targetCompatibility JavaVersion.VERSION_17\\n    }\\n\\n    kotlinOptions {\\n        jvmTarget = '17'\\n    }\\n" extracted/AminDataWebView/app/build.gradle
