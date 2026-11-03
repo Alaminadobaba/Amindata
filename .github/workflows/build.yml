@@ -30,22 +30,55 @@ jobs:
         run: |
           unzip -o AminDataWebView-Download.zip -d extracted
 
-      - name: Build APK
+      - name: Verify project files
+        run: |
+          test -f extracted/AminDataWebView/app/build.gradle
+          test -f extracted/AminDataWebView/settings.gradle
+
+      - name: Fix Java and Kotlin JVM targets
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path("extracted/AminDataWebView/app/build.gradle")
+          s = p.read_text()
+
+          fix = """
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+
+              kotlinOptions {
+                  jvmTarget = '17'
+              }
+          """
+
+          if "sourceCompatibility JavaVersion.VERSION_17" not in s:
+              s = s.replace("android {", "android {" + fix, 1)
+
+          p.write_text(s)
+
+          print("Updated Gradle configuration:")
+          print(s)
+          PY
+
+      - name: Build AminData APK
         run: |
           cd extracted/AminDataWebView
-          gradle --no-daemon assembleDebug
+          gradle --no-daemon --stacktrace assembleDebug
 
       - name: Verify APK
         run: |
-          test -s extracted/AminDataWebView/app/build/outputs/apk/debug/app-debug.apk
+          APK="extracted/AminDataWebView/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          echo "APK build successful"
+          ls -lh "$APK"
 
-      - name: Upload APK
+      - name: Upload AminData APK
         uses: actions/upload-artifact@v4
         with:
           name: AminData-APK
           path: extracted/AminDataWebView/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-
-      - name: Fix Java and Kotlin JVM targets
-        run: |
-          sed -i "/defaultConfig {/i\\    compileOptions {\\n        sourceCompatibility JavaVersion.VERSION_17\\n        targetCompatibility JavaVersion.VERSION_17\\n    }\\n\\n    kotlinOptions {\\n        jvmTarget = '17'\\n    }\\n" extracted/AminDataWebView/app/build.gradle
+          retention-days: 7
